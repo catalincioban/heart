@@ -45,6 +45,7 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.xr.enabled = true;
+renderer.xr.setFoveation(0.6);
 renderer.domElement.id = 'c3d';
 document.body.prepend(renderer.domElement);
 
@@ -96,10 +97,10 @@ function pivot(key) {
   return pivots[key];
 }
 function muscleMat(color) {
-  return new THREE.MeshPhysicalMaterial({ color, roughness: 0.42, clearcoat: 0.75, clearcoatRoughness: 0.28, sheen: 0.5, sheenColor: new THREE.Color(0xff9a8a), sheenRoughness: 0.5, side: THREE.DoubleSide });
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.34, metalness: 0.05, envMapIntensity: 1.3, side: THREE.DoubleSide });
 }
 function vesselMat(color) {
-  return new THREE.MeshPhysicalMaterial({ color, roughness: 0.5, clearcoat: 0.5, clearcoatRoughness: 0.35, side: THREE.DoubleSide });
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.42, metalness: 0.03, side: THREE.DoubleSide });
 }
 const coronaryMeshes = [], cavityMeshes = [];
 function buildModel(gltf) {
@@ -117,7 +118,7 @@ function buildModel(gltf) {
     let mat;
     if (key === 'RA' || key === 'LA') mat = vmat(muscleMat(0x8e3129), 1, 0.16);
     else if (key === 'VW') mat = vmat(muscleMat(0x7f2621), 1, 0.13);
-    else if (key === 'LCA' || key === 'RCA') { mat = new THREE.MeshPhysicalMaterial({ color: 0xc3362b, roughness: 0.35, clearcoat: 0.8 }); coronaryMeshes.push(m); }
+    else if (key === 'LCA' || key === 'RCA') { mat = new THREE.MeshStandardMaterial({ color: 0xc3362b, roughness: 0.3, envMapIntensity: 1.4 }); coronaryMeshes.push(m); }
     else if (key === 'RV' || key === 'LV') {
       mat = new THREE.MeshStandardMaterial({ color: key === 'RV' ? 0x3d55e0 : 0xe03a3a, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide, roughness: 0.5 });
       cavityMeshes.push(m);
@@ -170,6 +171,7 @@ function valve(key, pos, toward, n, r, type) {
   const v = { key, type, r, base, geo, pos: V(...pos) }; valves.push(v); setValve(v, 0); return v;
 }
 function setValve(v, theta) {
+  if (v.theta !== undefined && Math.abs(v.theta - theta) < 0.002) return; v.theta = theta;
   const p = v.geo.attributes.position.array;
   for (let k = 0; k < v.base.length; k++) {
     const [a, rho] = v.base[k], d = v.r - rho, q = v.r - d * Math.cos(theta);
@@ -304,13 +306,13 @@ function thump(freq, dur, gain) {
   const o = actx.createOscillator(); o.type = 'sine';
   o.frequency.setValueAtTime(freq * 1.6, t); o.frequency.exponentialRampToValueAtTime(freq, t + dur * 0.5);
   const g = actx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.03);
+  o.connect(g).connect(audioOut()); o.start(t); o.stop(t + dur + 0.03);
   const nb = actx.createBuffer(1, Math.floor(actx.sampleRate * dur), actx.sampleRate), d = nb.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   const ns = actx.createBufferSource(); ns.buffer = nb;
   const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = freq * 3;
   const ng = actx.createGain(); ng.gain.setValueAtTime(gain * 0.5, t); ng.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  ns.connect(lp).connect(ng).connect(actx.destination); ns.start(t);
+  ns.connect(lp).connect(ng).connect(audioOut()); ns.start(t);
 }
 let flashText = '', flashUntil = 0;
 function flash(t) { flashText = t; flashUntil = performance.now() + (state.slow ? 2200 : 650); }
@@ -348,8 +350,17 @@ const pc = document.createElement('canvas'); pc.width = PW; pc.height = PH;
 const px = pc.getContext('2d');
 const panelWrap = document.getElementById('panelwrap'); panelWrap.appendChild(pc);
 const ptex = new THREE.CanvasTexture(pc); ptex.colorSpace = THREE.SRGBColorSpace;
-const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.56 * PH / PW), new THREE.MeshBasicMaterial({ map: ptex, transparent: true, side: THREE.DoubleSide, depthTest: false, toneMapped: false }));
+const PANEL_W = 0.36, PANEL_H = PANEL_W * PH / PW;
+const panel = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_W, PANEL_H), new THREE.MeshBasicMaterial({ map: ptex, transparent: true, side: THREE.DoubleSide, toneMapped: false }));
 panel.renderOrder = 40; panel.visible = false; scene.add(panel);
+// ECG pe o textură mică separată (actualizată des), restul panoului doar la schimbări
+const EX = 24, EY = 80, EW = PW - 48, EH = 250;
+const ec = document.createElement('canvas'); ec.width = 512; ec.height = Math.round(512 * EH / EW);
+const ecx = ec.getContext('2d');
+const etex = new THREE.CanvasTexture(ec); etex.colorSpace = THREE.SRGBColorSpace;
+const ecgMesh = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_W * EW / PW, PANEL_H * EH / PH), new THREE.MeshBasicMaterial({ map: etex, toneMapped: false }));
+ecgMesh.position.set(0, PANEL_H / 2 - (EY + EH / 2) / PH * PANEL_H, 0.001); ecgMesh.renderOrder = 41;
+panel.add(ecgMesh);
 
 const buttons = [
   { l: () => ['Vedere', state.view === 'anatomic' ? 'anatomică' : 'interioară'], on: () => state.view === 'inter', act: () => { state.view = state.view === 'anatomic' ? 'inter' : 'anatomic'; applyView(); } },
@@ -383,7 +394,32 @@ function wrap(x, text, X, Y, maxW, lh, maxLines) {
   }
   if (line) x.fillText(line, X, Y + n * lh);
 }
-function drawPanel() {
+function drawECG(x, ex, ey, ew, eh, k) {
+  x.fillStyle = '#06130c'; rr(x, ex, ey, ew, eh, 16 * k); x.fill();
+  x.save(); rr(x, ex, ey, ew, eh, 16 * k); x.clip();
+  const win = state.slow ? 1.2 : 3;
+  x.strokeStyle = 'rgba(80,200,120,0.12)'; x.lineWidth = 1;
+  const gs = ew / (win / 0.2), off = ((simTime % 0.2) / 0.2) * gs;
+  for (let gx = ex + ew - off; gx > ex; gx -= gs) { x.beginPath(); x.moveTo(gx, ey); x.lineTo(gx, ey + eh); x.stroke(); }
+  for (let gy = ey + 25 * k; gy < ey + eh; gy += 45 * k) { x.beginPath(); x.moveTo(ex, gy); x.lineTo(ex + ew, gy); x.stroke(); }
+  x.strokeStyle = '#3cff7a'; x.lineWidth = 4 * k; x.lineJoin = 'round'; x.beginPath();
+  const stepPx = Math.max(1, 2 * k);
+  for (let i = 0; i <= ew; i += stepPx) {
+    const y = ey + eh * 0.64 - ecgAt(simTime - win + win * i / ew) * eh * 0.46;
+    i ? x.lineTo(ex + i, y) : x.moveTo(ex + i, y);
+  }
+  x.stroke();
+  x.fillStyle = '#3cff7a'; x.beginPath(); x.arc(ex + ew - 4 * k, ey + eh * 0.64 - ecgAt(simTime) * eh * 0.46, 7 * k, 0, 7); x.fill();
+  x.restore();
+  x.textAlign = 'left'; x.textBaseline = 'middle'; x.fillStyle = '#3cff7a'; x.font = `700 ${30 * k}px system-ui,sans-serif`;
+  x.fillText('♥ ' + Math.round(60 / cycleDur) + ' bpm', ex + 18 * k, ey + 30 * k);
+  x.font = `500 ${22 * k}px system-ui,sans-serif`; x.fillStyle = 'rgba(60,255,122,0.7)';
+  x.fillText('DII · ' + (state.slow ? '1,2 s' : '3 s') + ' pe ecran', ex + 18 * k, ey + 62 * k);
+  if (performance.now() < flashUntil) { x.textAlign = 'right'; x.fillStyle = '#ffd27a'; fit(x, flashText, ew - 300 * k, 28 * k, 700); x.fillText(flashText, ex + ew - 18 * k, ey + 30 * k); }
+}
+function panelSig() { return [phaseName(), selKey, hoverBtn, state.view, sizeMode, state.slow, state.paused, state.bpm, state.afib, state.labels, state.sound, renderer.xr.isPresenting].join('|'); }
+let lastSig = '';
+function drawPanel(withECG = true) {
   const x = px;
   x.clearRect(0, 0, PW, PH);
   x.fillStyle = 'rgba(12,16,26,0.92)'; rr(x, 0, 0, PW, PH, 36); x.fill();
@@ -391,38 +427,16 @@ function drawPanel() {
   x.textBaseline = 'middle'; x.textAlign = 'left'; x.fillStyle = '#fff';
   x.font = '700 36px system-ui,sans-serif'; x.fillText('Ciclul cardiac', 28, 44);
   x.textAlign = 'right'; x.fillStyle = '#ffd27a'; fit(x, phaseName(), 600, 30, 600); x.fillText(phaseName(), PW - 28, 44);
-  // ECG
-  const ex = 24, ey = 80, ew = PW - 48, eh = 250;
-  x.fillStyle = '#06130c'; rr(x, ex, ey, ew, eh, 16); x.fill();
-  x.save(); rr(x, ex, ey, ew, eh, 16); x.clip();
-  const win = state.slow ? 1.2 : 3;
-  x.strokeStyle = 'rgba(80,200,120,0.12)'; x.lineWidth = 1;
-  const gs = ew / (win / 0.2), off = ((simTime % 0.2) / 0.2) * gs;
-  for (let gx = ex + ew - off; gx > ex; gx -= gs) { x.beginPath(); x.moveTo(gx, ey); x.lineTo(gx, ey + eh); x.stroke(); }
-  for (let gy = ey + 25; gy < ey + eh; gy += 45) { x.beginPath(); x.moveTo(ex, gy); x.lineTo(ex + ew, gy); x.stroke(); }
-  x.strokeStyle = '#3cff7a'; x.lineWidth = 4; x.lineJoin = 'round'; x.beginPath();
-  for (let i = 0; i <= ew; i += 2) {
-    const y = ey + eh * 0.64 - ecgAt(simTime - win + win * i / ew) * eh * 0.46;
-    i ? x.lineTo(ex + i, y) : x.moveTo(ex + i, y);
-  }
-  x.stroke();
-  x.fillStyle = '#3cff7a'; x.beginPath(); x.arc(ex + ew - 4, ey + eh * 0.64 - ecgAt(simTime) * eh * 0.46, 7, 0, 7); x.fill();
-  x.restore();
-  x.textAlign = 'left'; x.fillStyle = '#3cff7a'; x.font = '700 30px system-ui,sans-serif';
-  x.fillText('♥ ' + Math.round(60 / cycleDur) + ' bpm', ex + 18, ey + 30);
-  x.font = '500 22px system-ui,sans-serif'; x.fillStyle = 'rgba(60,255,122,0.7)';
-  x.fillText('DII · ' + (state.slow ? '1,2 s' : '3 s') + ' pe ecran', ex + 18, ey + 62);
-  if (performance.now() < flashUntil) { x.textAlign = 'right'; x.fillStyle = '#ffd27a'; fit(x, flashText, ew - 300, 28, 700); x.fillText(flashText, ex + ew - 18, ey + 30); }
-  // info
+  if (withECG) drawECG(x, EX, EY, EW, EH, 1);
   x.textAlign = 'left'; x.textBaseline = 'top';
   let title, body;
   if (selKey && INFO[selKey]) [title, body] = INFO[selKey];
   else if (state.afib) [title, body] = ['Fibrilație atrială', 'Atriile fibrilează și nu se mai contractă eficient. Pe ECG lipsesc undele P, apar unde f, iar intervalele RR sunt complet neregulate.'];
+  else if (renderer.xr.isPresenting) [title, body] = ['Cum folosești', 'Ține trăgaciul apăsat pe inimă ca s-o apuci, s-o rotești și s-o muți — simți bătăile în controller. Bumperul aduce meniul lângă tine. Apasă scurt pe o structură pentru detalii.'];
   else if (state.view === 'anatomic') [title, body] = ['Indicație', 'Atinge o structură pentru detalii. „Vedere: interioară” arată valvele și fluxul de sânge; „Viteză 0,1×” arată sincronizarea ECG – valve – S1/S2.'];
   else [title, body] = ['Vedere interioară', 'Albastru: sânge venos, roșu: sânge oxigenat. Observă cum sângele se adună în atrii cât timp valvele atrioventriculare sunt închise.'];
   x.fillStyle = '#fff'; x.font = '700 30px system-ui,sans-serif'; x.fillText(title, 28, 352);
   x.fillStyle = '#c9d2e3'; x.font = '400 25px system-ui,sans-serif'; wrap(x, body, 28, 394, PW - 56, 33, 4);
-  // butoane
   x.textAlign = 'center'; x.textBaseline = 'middle';
   buttons.forEach((b, i) => {
     const on = b.on();
@@ -434,8 +448,14 @@ function drawPanel() {
   });
   x.textAlign = 'left'; x.fillStyle = '#7d879b';
   const CR = 'Model: BodyParts3D, © The Database Center for Life Science, CC BY 4.0 — modificat (animat; vase și valve adăugate schematic).'; fit(x, CR, PW - 56, 19, 400);
-  x.fillText(CR, 28, 776); if (0) x.fillText('Model: BodyParts3D, © The Database Center for Life Science, CC BY 4.0 — modificat (simplificat, animat; vase și valve adăugate schematic).', 28, 776);
+  x.fillText(CR, 28, 776);
   ptex.needsUpdate = true;
+}
+function drawECGTex() {
+  const k = ec.width / EW;
+  ecx.clearRect(0, 0, ec.width, ec.height);
+  drawECG(ecx, 0, 0, ec.width, ec.height, k);
+  etex.needsUpdate = true;
 }
 pc.addEventListener('pointerdown', e => {
   const r = pc.getBoundingClientRect();
@@ -451,52 +471,54 @@ function resetView() {
 function toggleSize() {
   sizeMode = sizeMode === 'natural' ? 'giant' : 'natural';
   targetScale = sizeMode === 'natural' ? NAT : GIANT;
-  if (renderer.xr.isPresenting) placeInXR(false); else resetView();
+  if (renderer.xr.isPresenting) { placeInXR(false); placePanel(); } else resetView();
 }
-const _cp = new THREE.Vector3(), _cd = new THREE.Vector3();
+const _cp = new THREE.Vector3(), _cd = new THREE.Vector3(), _right = new THREE.Vector3();
 function camPose() {
   const xc = renderer.xr.getCamera();
   xc.getWorldPosition(_cp); xc.getWorldDirection(_cd); _cd.y = 0;
   if (_cd.lengthSq() < 1e-4) _cd.set(0, 0, -1); _cd.normalize();
+  _right.set(-_cd.z, 0, _cd.x);
 }
 function placeInXR(snap) {
   camPose();
-  const dist = sizeMode === 'natural' ? 0.5 : 3.0, dy = sizeMode === 'natural' ? -0.08 : 0.1;
-  anchorTarget.copy(_cp).addScaledVector(_cd, dist); anchorTarget.y = _cp.y + dy;
-  anchor.rotation.y = Math.atan2(-_cd.x, -_cd.z);
+  const dist = sizeMode === 'natural' ? 0.5 : 3.0, dy = sizeMode === 'natural' ? -0.06 : 0.1;
+  anchorTarget.copy(_cp).addScaledVector(_cd, dist).addScaledVector(_right, sizeMode === 'natural' ? 0.06 : 0); anchorTarget.y = _cp.y + dy;
+  anchor.quaternion.setFromAxisAngle(V(0, 1, 0), Math.atan2(-_cd.x, -_cd.z));
   if (snap) anchor.position.copy(anchorTarget);
 }
-let panelFollow = true;
-function updatePanelXR(dt, snap) {
+// meniul stă fix în lume, în stânga, rotit spre utilizator; bumperul îl aduce înapoi
+function placePanel() {
   camPose();
-  const right = V(-_cd.z, 0, _cd.x);
-  const target = _cp.clone().addScaledVector(_cd, 0.62).addScaledVector(right, 0.3); target.y = _cp.y - 0.2;
-  const to = panel.position.clone().sub(_cp); to.y = 0;
-  const ang = to.lengthSq() > 1e-6 ? to.normalize().angleTo(_cd) : 9;
-  if (snap || ang > 0.85 || panel.position.distanceTo(target) > 0.9) panelFollow = true;
-  if (panelFollow) { panel.position.lerp(target, snap ? 1 : Math.min(1, dt * 4)); if (panel.position.distanceTo(target) < 0.02) panelFollow = false; }
+  panel.position.copy(_cp).addScaledVector(_cd, 0.55).addScaledVector(_right, -0.3);
+  panel.position.y = _cp.y - 0.1;
   panel.lookAt(_cp);
 }
 
-/* ---------- Interacțiune ---------- */
+/* ---------- Interacțiune: apucă / rotește, detalii, meniu ---------- */
 const ray = new THREE.Raycaster(), _rm = new THREE.Matrix4();
 const VALVE_KEYS = new Set(['TV', 'MV', 'PUV', 'AOV']);
 const shown = o => { while (o) { if (!o.visible) return false; o = o.parent; } return true; };
-function pickStructure() {
+function pickHit() {
   const hits = ray.intersectObjects(selectables, false).filter(h => shown(h.object));
   if (!hits.length) return null;
   const by = f => hits.find(h => f(h.object.userData.key));
-  const h = by(k => VALVE_KEYS.has(k)) || by(k => k === 'RV' || k === 'LV') || by(k => k !== 'VW') || hits[0];
-  return h.object.userData.key;
+  return by(k => VALVE_KEYS.has(k)) || by(k => k === 'RV' || k === 'LV') || by(k => k !== 'VW') || hits[0];
 }
+const pickStructure = () => pickHit()?.object.userData.key ?? null;
 const ctrls = [];
+let grab = null; // {c, pos, quat}
 for (let i = 0; i < 2; i++) {
   const c = renderer.xr.getController(i);
   const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0, 0, 0), V(0, 0, -1)]), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 }));
   line.scale.z = 3; line.visible = false; c.add(line); c.userData.line = line;
-  c.addEventListener('connected', e => { line.visible = e.data.targetRayMode === 'tracked-pointer'; c.userData.active = true; });
-  c.addEventListener('disconnected', () => { line.visible = false; c.userData.active = false; });
-  c.addEventListener('select', () => onXRSelect(c));
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  dot.visible = false; scene.add(dot); c.userData.dot = dot;
+  c.addEventListener('connected', e => { c.userData.src = e.data; line.visible = e.data.targetRayMode === 'tracked-pointer'; c.userData.active = true; });
+  c.addEventListener('disconnected', () => { line.visible = false; dot.visible = false; c.userData.active = false; c.userData.src = null; });
+  c.addEventListener('selectstart', () => onSelectStart(c));
+  c.addEventListener('selectend', () => onSelectEnd(c));
+  c.addEventListener('squeezestart', () => { placePanel(); haptic(c, 0.3, 30); });
   scene.add(c); ctrls.push(c);
 }
 function castFrom(c) {
@@ -504,24 +526,43 @@ function castFrom(c) {
   ray.ray.origin.setFromMatrixPosition(c.matrixWorld);
   ray.ray.direction.set(0, 0, -1).applyMatrix4(_rm);
 }
-function onXRSelect(c) {
+function haptic(c, intensity, ms) {
+  try { const a = c.userData.src?.gamepad?.hapticActuators?.[0]; if (a?.pulse) a.pulse(intensity, ms); else a?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: intensity, weakMagnitude: intensity }); } catch (e) { }
+}
+function hapticAll(intensity, ms) { for (const c of ctrls) if (c.userData.active) haptic(c, intensity, ms); }
+function onSelectStart(c) {
   ensureAudio(); castFrom(c);
-  const hp = ray.intersectObject(panel)[0];
-  if (hp) { panelClick(hp.uv.x * PW, (1 - hp.uv.y) * PH); return; }
-  select(pickStructure());
+  const hp = panel.visible ? ray.intersectObject(panel, false)[0] : null;
+  if (hp) { panelClick(hp.uv.x * PW, (1 - hp.uv.y) * PH); haptic(c, 0.25, 20); return; }
+  const h = pickHit();
+  if (!h || grab) return;
+  grab = { c, key: h.object.userData.key, pos: anchor.getWorldPosition(new THREE.Vector3()), quat: anchor.getWorldQuaternion(new THREE.Quaternion()) };
+  c.attach(anchor); haptic(c, 0.4, 25);
+}
+function onSelectEnd(c) {
+  if (!grab || grab.c !== c) return;
+  scene.attach(anchor); anchorTarget.copy(anchor.position);
+  const moved = anchor.position.distanceTo(grab.pos), turned = anchor.quaternion.angleTo(grab.quat);
+  if (moved < 0.015 && turned < 0.06) select(grab.key);   // apăsare scurtă = detalii
+  grab = null;
 }
 function xrHover() {
   let hb = -1;
   for (const c of ctrls) {
     if (!c.userData.active) continue;
     castFrom(c);
-    const hp = ray.intersectObject(panel)[0];
+    const hp = panel.visible ? ray.intersectObject(panel, false)[0] : null;
+    let dist = 3, pt = null;
     if (hp) {
       const X = hp.uv.x * PW, Y = (1 - hp.uv.y) * PH;
       const i = buttons.findIndex(b => X >= b.x && X <= b.x + BW && Y >= b.y && Y <= b.y + BH);
       if (i >= 0) hb = i;
-      c.userData.line.scale.z = hp.distance;
-    } else c.userData.line.scale.z = 3;
+      dist = hp.distance; pt = hp.point;
+    } else if (!grab) {
+      const h = pickHit(); if (h) { dist = h.distance; pt = h.point; }
+    }
+    c.userData.line.scale.z = dist;
+    c.userData.dot.visible = !!pt && c.userData.line.visible; if (pt) c.userData.dot.position.copy(pt);
   }
   hoverBtn = hb;
 }
@@ -532,6 +573,32 @@ renderer.domElement.addEventListener('pointerup', e => {
   ray.setFromCamera(new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
   select(pickStructure()); drawPanel();
 });
+
+/* ---------- Sunet spațial: bătăile vin din inimă ---------- */
+let panner = null;
+const _ap = new THREE.Vector3(), _aq = new THREE.Quaternion(), _af = new THREE.Vector3(), _au = new THREE.Vector3();
+function audioOut() {
+  if (!actx) return null;
+  if (!panner) {
+    panner = actx.createPanner(); panner.panningModel = 'HRTF'; panner.distanceModel = 'inverse';
+    panner.refDistance = 0.6; panner.rolloffFactor = 1; panner.connect(actx.destination);
+  }
+  return panner;
+}
+function updateAudio() {
+  if (!actx || !panner) return;
+  anchor.getWorldPosition(_ap);
+  panner.refDistance = sizeMode === 'giant' ? 3 : 0.6;
+  if (panner.positionX) { panner.positionX.value = _ap.x; panner.positionY.value = _ap.y; panner.positionZ.value = _ap.z; } else panner.setPosition(_ap.x, _ap.y, _ap.z);
+  const cam = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
+  cam.getWorldPosition(_ap); cam.getWorldQuaternion(_aq);
+  _af.set(0, 0, -1).applyQuaternion(_aq); _au.set(0, 1, 0).applyQuaternion(_aq);
+  const L = actx.listener;
+  if (L.positionX) {
+    L.positionX.value = _ap.x; L.positionY.value = _ap.y; L.positionZ.value = _ap.z;
+    L.forwardX.value = _af.x; L.forwardY.value = _af.y; L.forwardZ.value = _af.z; L.upX.value = _au.x; L.upY.value = _au.y; L.upZ.value = _au.z;
+  } else { L.setPosition(_ap.x, _ap.y, _ap.z); L.setOrientation(_af.x, _af.y, _af.z, _au.x, _au.y, _au.z); }
+}
 
 /* ---------- WebXR ---------- */
 const xrBtn = document.getElementById('xrbtn'), msg = document.getElementById('msg');
@@ -557,10 +624,11 @@ xrBtn.onclick = async () => {
     renderer.xr.setReferenceSpaceType('local');
     await renderer.xr.setSession(s);
     scene.background = xrMode === 'immersive-ar' ? null : BG;
-    panel.visible = true; needPlace = true; document.body.classList.add('xr');
+    panel.visible = true; needPlace = true; curScale = 0.002; document.body.classList.add('xr');
     s.addEventListener('end', () => {
       scene.background = BG; panel.visible = false; document.body.classList.remove('xr');
-      anchorTarget.set(0, 1.5, 0); anchor.position.copy(anchorTarget); anchor.rotation.y = 0; resetView();
+      if (grab) { scene.attach(anchor); grab = null; }
+      anchorTarget.set(0, 1.5, 0); anchor.position.copy(anchorTarget); anchor.quaternion.identity(); resetView();
     });
   } catch (e) {
     msg.textContent = 'Nu am putut porni sesiunea XR (' + (e.message || e) + '). Dacă pagina e deschisă într-un cadru (de ex. în claude.ai), deschide fișierul direct, de pe o adresă HTTPS.';
@@ -589,8 +657,8 @@ function step(dt) {
     s1Done = s2Done = false;
   }
   phase = (simTime - cycleStart) / cycleDur;
-  if (!s1Done && phase >= 0.19) { s1Done = true; thump(55, 0.14, 0.9); flash('S1 – se închid mitrala și tricuspida'); }
-  if (!s2Done && phase >= 0.5) { s2Done = true; thump(85, 0.09, 0.7); flash('S2 – se închid valvele aortică și pulmonară'); }
+  if (!s1Done && phase >= 0.19) { s1Done = true; thump(55, 0.14, 0.9); hapticAll(0.7, 70); flash('S1 – se închid mitrala și tricuspida'); }
+  if (!s2Done && phase >= 0.5) { s2Done = true; thump(85, 0.09, 0.7); hapticAll(0.35, 40); flash('S2 – se închid valvele aortică și pulmonară'); }
 
   const at = state.afib ? 0 : (phase >= 0.08 && phase < 0.19 ? Math.sin(Math.PI * (phase - 0.08) / 0.11) : 0);
   const tremor = state.afib ? 0.012 * Math.sin(simTime * 2 * Math.PI * 6.1) + 0.008 * Math.sin(simTime * 2 * Math.PI * 8.9 + 1) : 0;
@@ -605,18 +673,24 @@ function step(dt) {
   if (inst.visible) updateParticles(sdt, ao > 0.5, so > 0.5);
 
   curScale += (targetScale - curScale) * Math.min(1, dt * 3); heart.scale.setScalar(curScale);
-  anchor.position.lerp(anchorTarget, Math.min(1, dt * 3));
+  if (!grab) anchor.position.lerp(anchorTarget, Math.min(1, dt * 3));
 }
+let ecgAcc = 1, audioAcc = 1;
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   step(dt);
-  if (renderer.xr.isPresenting) {
-    if (needPlace) { placeInXR(true); updatePanelXR(dt, true); needPlace = false; }
-    else updatePanelXR(dt, false);
+  const xr = renderer.xr.isPresenting;
+  if (xr) {
+    if (needPlace) { placeInXR(true); placePanel(); needPlace = false; }
     xrHover();
-  } else controls.update();
-  panelAcc += dt;
-  if (panelAcc > 1 / 30) { panelAcc = 0; drawPanel(); }
+    ecgAcc += dt; if (ecgAcc > 1 / 20) { ecgAcc = 0; drawECGTex(); }
+    const sig = panelSig() + '|' + (performance.now() < flashUntil);
+    if (sig !== lastSig) { lastSig = sig; drawPanel(false); }
+  } else {
+    controls.update();
+    panelAcc += dt; if (panelAcc > 1 / 30) { panelAcc = 0; drawPanel(true); }
+  }
+  audioAcc += dt; if (audioAcc > 1 / 30) { audioAcc = 0; updateAudio(); }
   renderer.render(scene, camera);
 });
 </script>
