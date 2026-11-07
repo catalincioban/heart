@@ -566,7 +566,8 @@ function onSelectStart(c) {
   const hp = panel.visible ? ray.intersectObject(panel, false)[0] : null;
   if (hp) { panelClick(hp.uv.x * PW, (1 - hp.uv.y) * PH); haptic(c, 0.25, 20); return; }
   if (grab) return;
-  if (capMesh.visible && ray.intersectObject(capMesh, false)[0]) { if (tour) nextStep(1); haptic(c, 0.25, 20); return; }
+  const hc = capMesh.visible ? ray.intersectObject(capMesh, false)[0] : null;
+  if (hc) { if (tour) nextStep(hc.uv.x < 0.35 ? -1 : 1); haptic(c, 0.25, 20); return; }
   if (secGroup.visible && ray.intersectObject(secHandle, false)[0]) {
     grab = { c, obj: secGroup, parent: heart }; c.attach(secGroup); haptic(c, 0.4, 25); return;
   }
@@ -683,8 +684,13 @@ function setCaption(title, text, hint = '') {
   x.strokeStyle = 'rgba(255,210,122,0.5)'; x.lineWidth = 3; rr(x, 1.5, 1.5, CW - 3, CH - 3, 31); x.stroke();
   x.textAlign = 'left'; x.textBaseline = 'top';
   x.fillStyle = '#ffd27a'; x.font = '700 38px system-ui,sans-serif'; x.fillText(title, 32, 24);
-  x.fillStyle = '#fff'; x.font = '400 31px system-ui,sans-serif'; wrap(x, text, 32, 80, CW - 64, 40, 5);
-  if (hint) { x.fillStyle = '#8f9ab0'; x.font = '500 22px system-ui,sans-serif'; x.textAlign = 'right'; x.fillText(hint, CW - 28, CH - 40); }
+  x.fillStyle = '#fff'; x.font = '400 31px system-ui,sans-serif'; wrap(x, text, 32, 80, CW - 64, 40, tour ? 4 : 5);
+  if (tour) {
+    x.font = '700 26px system-ui,sans-serif'; x.textBaseline = 'middle';
+    x.fillStyle = '#232b3c'; rr(x, 24, CH - 62, 200, 44, 12); x.fill(); rr(x, CW - 224, CH - 62, 200, 44, 12); x.fill();
+    x.fillStyle = '#dfe6f2'; x.textAlign = 'center';
+    x.fillText('◀  Înapoi', 124, CH - 40); x.fillText(tour.i + 1 >= TOUR.length ? 'Termină  ✓' : 'Înainte  ▶', CW - 124, CH - 40);
+  }
   ctex.needsUpdate = true;
 }
 const _ct = new THREE.Vector3();
@@ -762,10 +768,8 @@ function nextStep(d) {
   if (st.size && st.size !== sizeMode) setSize(st.size); else if (st.size && !st.focus) setSize(st.size);
   if (st.focus) focusModel(st.focus);
   setHighlight(st.hl); select(null);
-  setCaption(`${st.ti}  ·  ${tour.i + 1}/${TOUR.length}`, st.t, renderer.xr.isPresenting ? 'Atinge cardul → pasul următor' : '');
-  const est = Math.max(6500, st.t.length * 75);
-  tour.until = performance.now() + est * (roVoice && state.sound ? 1.8 : 1);
-  speak(st.t, () => { if (tour && tour.id === id) tour.until = Math.min(tour.until, performance.now() + 1500); });
+  setCaption(`${st.ti}  ·  ${tour.i + 1}/${TOUR.length}`, st.t);
+  speak(st.t);
 }
 
 /* ---------- Test ---------- */
@@ -907,7 +911,6 @@ renderer.setAnimationLoop(() => {
   const xr = renderer.xr.isPresenting;
   updateEmissive(clock.elapsedTime);
   updateSection(xr);
-  if (tour && performance.now() > tour.until) nextStep(1);
   updateCaption(dt, xr, needPlace);
   if (xr) {
     if (needPlace) { placeInXR(true); placePanel(); needPlace = false; }
