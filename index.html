@@ -351,24 +351,24 @@ function hapticAll(i, ms) { for (const c of ctrls) if (c.userData.active) haptic
    Informații, selecție, evidențiere
    ========================================================= */
 const INFO = {
-  RA: ['Atriul drept', 'Primește sângele venos din venele cave. În sistola atrială completează umplerea ventriculului drept (aproximativ 20–30% din volum), prin valva tricuspidă.'],
+  RA: ['Atriul drept', 'Primește sângele venos din venele cave. În sistola atrială împinge restul de ~20–30% din sânge prin valva tricuspidă în ventriculul drept.'],
   LA: ['Atriul stâng', 'Primește sângele oxigenat din cele patru vene pulmonare și îl trece prin valva mitrală în ventriculul stâng.'],
-  VW: ['Miocardul ventricular', 'Mușchiul ventriculelor. Septul interventricular separă VD de VS; peretele VS este de circa trei ori mai gros decât al VD.'],
-  RV: ['Ventriculul drept', 'Pompează sângele venos prin valva pulmonară spre plămâni (circulația mică). Se află în fața VS și, pe secțiune transversală, are formă de semilună.'],
+  VW: ['Miocardul ventricular', 'Mușchiul ventriculelor. Septul interventricular separă VD de VS; peretele VS e de circa trei ori mai gros.'],
+  RV: ['Ventriculul drept', 'Pompează sângele venos prin valva pulmonară spre plămâni (circulația mică). Are formă de semilună, în fața VS.'],
   LV: ['Ventriculul stâng', 'Cea mai puternică cameră: pompează sângele oxigenat în aortă, spre tot corpul. Vârful lui formează apexul.'],
   TV: ['Valva tricuspidă', 'Valva atrioventriculară dreaptă, cu 3 cuspide. Se închide la începutul sistolei ventriculare: contribuie la S1.'],
   MV: ['Valva mitrală', 'Valva atrioventriculară stângă, cu 2 cuspide. Închiderea ei este componenta principală a zgomotului S1.'],
   PUV: ['Valva pulmonară', 'Valvă semilunară cu 3 cuspide. Se închide la sfârșitul sistolei: componenta P2 a zgomotului S2.'],
   AOV: ['Valva aortică', 'Valvă semilunară cu 3 cuspide. Închiderea ei la sfârșitul sistolei dă componenta A2 a zgomotului S2.'],
-  AO: ['Aorta', 'Pornește din ventriculul stâng. Din crosa aortică pleacă trunchiul brahiocefalic, artera carotidă comună stângă și artera subclavie stângă.'],
+  AO: ['Aorta', 'Pornește din ventriculul stâng; din crosă pleacă trunchiul brahiocefalic, carotida comună stângă și subclavia stângă.'],
   DAO: ['Aorta descendentă', 'Continuarea crosei aortice prin torace și abdomen. Adăugată schematic.'],
-  PT: ['Trunchiul pulmonar', 'Duce sângele venos din VD spre plămâni și se împarte în arterele pulmonare — la adult, singurele artere care transportă sânge neoxigenat.'],
+  PT: ['Trunchiul pulmonar', 'Duce sângele venos din VD spre plămâni și se împarte în arterele pulmonare — singurele artere cu sânge neoxigenat.'],
   PA: ['Arterele pulmonare', 'Ramurile dreaptă și stângă ale trunchiului pulmonar, spre fiecare plămân. Adăugate schematic.'],
   SVC: ['Vena cavă superioară', 'Aduce sângele venos din cap, gât și membrele superioare în atriul drept.'],
   IVC: ['Vena cavă inferioară', 'Aduce sângele venos din abdomen și membrele inferioare în atriul drept. Adăugată schematic.'],
-  PV: ['Venele pulmonare', 'De obicei patru vene, care aduc sângele oxigenat de la plămâni în atriul stâng. Adăugate schematic.'],
-  LCA: ['Artera coronară stângă', 'Pornește din aorta ascendentă și se împarte în artera interventriculară anterioară și artera circumflexă. Irigă cea mai mare parte a VS și porțiunea anterioară a septului.'],
-  RCA: ['Artera coronară dreaptă', 'Pornește din aorta ascendentă și parcurge șanțul coronar drept. Irigă VD, atriul drept și, la majoritatea oamenilor, nodul sinoatrial.'],
+  PV: ['Venele pulmonare', 'Patru vene care aduc sângele oxigenat de la plămâni în atriul stâng. Adăugate schematic.'],
+  LCA: ['Artera coronară stângă', 'Pornește din aorta ascendentă și se împarte în artera interventriculară anterioară și circumflexă. Irigă mare parte din VS și septul.'],
+  RCA: ['Artera coronară dreaptă', 'Pornește din aorta ascendentă, în șanțul atrioventricular drept. Irigă VD, atriul drept și, la majoritatea oamenilor, nodul sinoatrial.'],
 };
 let selKey = null;
 const highlight = new Map();
@@ -437,8 +437,8 @@ function drawHUD(withECG) {
   let t, b;
   if (capTitle) [t, b] = [capTitle, capText];
   else if (selKey && INFO[selKey]) [t, b] = INFO[selKey];
-  else if (state.afib) [t, b] = ['Fibrilație atrială', 'Atriile fibrilează și nu se mai contractă eficient: lipsesc undele P, apar unde f, iar intervalele RR sunt neregulate.'];
-  else if (xrOn()) [t, b] = ['Explorează', 'Ține apăsat trăgaciul pe inimă ca s-o apuci și s-o rotești. Apăsare scurtă: detalii. Bumper: meniu.'];
+  else if (state.afib) [t, b] = ['Fibrilație atrială', 'Atriile fibrilează și nu se mai contractă eficient: lipsesc undele P, apar unde f, intervalele RR sunt neregulate.'];
+  else if (xrOn()) [t, b] = ['Explorează', 'Trăgaci ținut pe inimă: o apuci și o rotești. Apăsare scurtă: detalii. Bumper: meniu.'];
   else [t, b] = ['Explorează', 'Atinge o structură pentru detalii. Din meniu: tur ghidat, test, vedere în secțiune.'];
   x.textAlign = 'left'; x.textBaseline = 'top';
   x.fillStyle = '#fff'; fit(x, t, HW - 56, 30, 700); x.fillText(t, 28, 186);
@@ -455,10 +455,9 @@ function drawHUD(withECG) {
 function drawECGTex() { const k = ecgC.width / HECG.w; ex2.clearRect(0, 0, ecgC.width, ecgC.height); drawECG(ex2, 0, 0, ecgC.width, ecgC.height, k); ecgTex.needsUpdate = true; }
 
 // --- Meniu 1024×300: 12 butoane în 6×2
-const MW = 1024, MH = 336;
+const MW = 1024, MH = 300;
 const menuC = document.createElement('canvas'); menuC.width = MW; menuC.height = MH; const mx = menuC.getContext('2d');
 const menuTex = new THREE.CanvasTexture(menuC); menuTex.colorSpace = THREE.SRGBColorSpace;
-const CREDIT = 'Model: BodyParts3D, © The Database Center for Life Science, CC BY 4.0 — modificat (animat; vase și valve adăugate schematic).';
 const MENU_W = 0.34, MENU_H = MENU_W * MH / MW;
 const menu = new THREE.Mesh(new THREE.PlaneGeometry(MENU_W, MENU_H), new THREE.MeshBasicMaterial({ map: menuTex, transparent: true, toneMapped: false }));
 menu.renderOrder = 40;
@@ -469,9 +468,9 @@ const MB = [
   { l: () => ['Mărime', SIZE_LABEL[sizeMode]], on: () => sizeMode !== 'natural', act: () => setSize(SIZE_ORDER[(SIZE_ORDER.indexOf(sizeMode) + 1) % 3]) },
   { l: () => ['Viteză', state.slow ? '0,1×' : '1×'], on: () => state.slow, act: () => { state.slow = !state.slow; } },
   { l: () => ['Animație', state.paused ? 'oprită' : 'rulează'], on: () => state.paused, act: () => { state.paused = !state.paused; } },
-  { l: () => ['Puls', state.bpm === 70 ? '70 (repaus)' : '140 (efort)'], on: () => state.bpm !== 70, act: () => { state.bpm = state.bpm === 70 ? 140 : 70; } },
+  { l: () => ['Puls', state.bpm === 70 ? '70 repaus' : '140 efort'], on: () => state.bpm !== 70, act: () => { state.bpm = state.bpm === 70 ? 140 : 70; } },
   { l: () => ['Ritm', state.afib ? 'fibrilație' : 'sinusal'], on: () => state.afib, act: () => { state.afib = !state.afib; } },
-  { l: () => ['Etichete', state.labelsAll ? 'toate' : 'doar cea activă'], on: () => state.labelsAll, act: () => { state.labelsAll = !state.labelsAll; updateLabels(); } },
+  { l: () => ['Etichete', state.labelsAll ? 'toate' : 'doar activă'], on: () => state.labelsAll, act: () => { state.labelsAll = !state.labelsAll; updateLabels(); } },
   { l: () => ['Sunet', state.sound ? 'da' : 'nu'], on: () => state.sound, act: () => { state.sound = !state.sound; if (!state.sound) speechStop(); } },
   { l: () => ['Repoziționează', xrOn() ? 'în fața mea' : 'vederea'], on: () => false, act: () => { if (xrOn()) { placeInXR(true); placeUI(true); } else resetView(); } },
   { l: () => ['Închide', 'meniul'], on: () => false, act: () => { state.menu = false; } },
@@ -489,7 +488,6 @@ function drawMenu() {
     x.fillStyle = on ? '#ffe3e7' : '#9aa6bd'; fit(x, l1, b.w - 14, 22, 600); x.fillText(l1, b.x + b.w / 2, b.y + 38);
     x.fillStyle = '#fff'; fit(x, l2, b.w - 14, 27, 700); x.fillText(l2, b.x + b.w / 2, b.y + 80);
   });
-  x.fillStyle = '#7d879b'; fit(x, CREDIT, MW - 48, 18, 400); x.fillText(CREDIT, MW / 2, 312);
   menuTex.needsUpdate = true;
 }
 const hitBtn = (list, X, Y) => list.findIndex(b => (!b.show || b.show()) && X >= b.x && X <= b.x + b.w && Y >= b.y && Y <= b.y + b.h);
@@ -561,19 +559,19 @@ const P_RA = [-0.73, -0.28, 0.22], P_TV = [-0.58, -0.38, 0.42], P_RV = [-0.03, -
 const TOUR = [
   { ti: 'Bun venit', t: 'O inimă umană în mărime reală, reconstruită din date anatomice. Are cam cât pumnul tău și bate de aproximativ 100.000 de ori pe zi.', view: 'ext', size: 'natural', slow: false, hl: [] },
   { ti: 'Atriul drept', t: 'În partea dreaptă a inimii — în stânga ta — atriul drept primește sângele venos din tot corpul, prin venele cave.', hl: ['RA', 'SVC', 'IVC'] },
-  { ti: 'Ventriculii', t: 'Dedesubt se află ventriculii, camerele care pompează sângele. Ventriculul stâng formează vârful inimii: apexul.', hl: ['VW'] },
-  { ti: 'Arterele coronare', t: 'Arterele coronare, de pe suprafața inimii, irigă chiar mușchiul cardiac. Dacă una dintre ele se blochează, apare infarctul miocardic.', hl: ['LCA', 'RCA'] },
+  { ti: 'Ventriculii', t: 'Dedesubt sunt ventriculii, mușchiul care pompează. Ventriculul stâng formează vârful inimii: apexul.', hl: ['VW'] },
+  { ti: 'Arterele coronare', t: 'Pe suprafață, arterele coronare hrănesc chiar mușchiul inimii. Dacă una se blochează, apare infarctul miocardic.', hl: ['LCA', 'RCA'] },
   { ti: 'Vasele mari', t: 'Sus pleacă aorta, spre tot corpul, și trunchiul pulmonar, spre plămâni. Cele două vase se încrucișează.', hl: ['AO', 'PT'] },
-  { ti: 'Tăiem inima', t: 'Secționăm inima ca să vedem înăuntru. Albastru: sânge venos. Roșu: sânge oxigenat. Suprafața mai închisă la culoare a tăieturii arată grosimea pereților.', view: 'sec', hl: [] },
+  { ti: 'Tăiem inima', t: 'Secționăm inima ca să vedem înăuntru. Albastru: sânge venos. Roșu: sânge oxigenat. Partea închisă la culoare a tăieturii arată grosimea pereților.', view: 'sec', hl: [] },
   { ti: 'Intrăm în inimă', t: 'Mărim inima de 24 de ori și încetinim totul de zece ori, ca să urmărești fiecare fază a ciclului.', size: 'gigant', slow: true, focus: P_RA, hl: [] },
   { ti: 'Atriul drept', t: 'Sângele intră prin cele două vene cave și se adună aici cât timp valva tricuspidă e închisă.', hl: ['SVC', 'IVC', 'RA'], focus: P_RA },
-  { ti: 'Valva tricuspidă', t: 'Are trei cuspide. Se deschide în diastolă și se închide la începutul sistolei ventriculare: primul zgomot, S1.', hl: ['TV'], focus: P_TV },
+  { ti: 'Valva tricuspidă', t: 'Trei cuspide. Se deschide în diastolă și se închide la începutul sistolei ventriculare: primul zgomot, S1.', hl: ['TV'], focus: P_TV },
   { ti: 'Ventriculul drept', t: 'Se contractă și împinge sângele prin valva pulmonară spre plămâni. Valva pulmonară se deschide doar în ejecție.', hl: ['RV', 'PUV'], focus: P_RV },
   { ti: 'Atriul stâng', t: 'Sângele revine oxigenat de la plămâni, prin venele pulmonare, în atriul stâng.', hl: ['PV', 'LA'], focus: P_LA },
-  { ti: 'Valva mitrală', t: 'Are doar două cuspide. Închiderea ei, împreună cu a tricuspidei, produce S1 — imediat după complexul QRS de pe ECG.', hl: ['MV'], focus: P_MV },
-  { ti: 'Ventriculul stâng', t: 'Are peretele cel mai gros, pentru că pompează sângele în tot corpul, la cea mai mare presiune.', hl: ['LV'], focus: P_LV },
+  { ti: 'Valva mitrală', t: 'Doar două cuspide. Închiderea ei, împreună cu a tricuspidei, produce S1 — imediat după complexul QRS de pe ECG.', hl: ['MV'], focus: P_MV },
+  { ti: 'Ventriculul stâng', t: 'Peretele cel mai gros: pompează sângele în tot corpul, cu cea mai mare presiune.', hl: ['LV'], focus: P_LV },
   { ti: 'Valva aortică', t: 'Se deschide în ejecție și se închide la sfârșitul sistolei: al doilea zgomot, S2, spre finalul undei T.', hl: ['AOV', 'AO'], focus: P_AOV },
-  { ti: 'Final', t: 'Ai parcurs un ciclu cardiac complet. Acum poți explora liber, poți tăia inima din meniu („Vedere”) sau poți porni testul.', size: 'natural', slow: false, view: 'ext', hl: [] },
+  { ti: 'Final', t: 'Un ciclu cardiac complet. Explorează liber, taie inima din meniu („Vedere”) sau pornește testul.', size: 'natural', slow: false, view: 'ext', hl: [] },
 ];
 let tour = null;
 function startTour() { if (exam) stopExam(); tour = { i: -1 }; nextStep(1); }
@@ -600,16 +598,16 @@ const QUIZ = [
   { q: 'Atinge ventriculul cu peretele cel mai gros.', k: ['LV'], v: 'sec' },
   { q: 'Atinge ventriculul care pompează sângele în circulația mică.', k: ['RV'], v: 'sec' },
   { q: 'Atinge valva care are doar două cuspide.', k: ['MV'], v: 'sec' },
-  { q: 'Atinge valva a cărei închidere dă componenta A2 a zgomotului S2.', k: ['AOV'], v: 'sec' },
+  { q: 'Atinge valva a cărei închidere dă componenta A2 a lui S2.', k: ['AOV'], v: 'sec' },
   { q: 'Atinge valva dintre atriul drept și ventriculul drept.', k: ['TV'], v: 'sec' },
   { q: 'Atinge valva prin care sângele pleacă spre plămâni.', k: ['PUV'], v: 'sec' },
   { q: 'Atinge vasul care duce sânge neoxigenat spre plămâni.', k: ['PT', 'PA'], v: 'ext' },
   { q: 'Atinge vasele care aduc sânge oxigenat în atriul stâng.', k: ['PV'], v: 'ext' },
-  { q: 'Atinge artera coronară care irigă în principal ventriculul drept.', k: ['RCA'], v: 'ext' },
-  { q: 'Atinge artera coronară din care pornește artera interventriculară anterioară.', k: ['LCA'], v: 'ext' },
+  { q: 'Atinge coronara care irigă în principal ventriculul drept.', k: ['RCA'], v: 'ext' },
+  { q: 'Atinge coronara din care pornește artera interventriculară anterioară.', k: ['LCA'], v: 'ext' },
   { q: 'Atinge vena care aduce sângele din cap și membrele superioare.', k: ['SVC'], v: 'ext' },
   { q: 'Atinge vena care aduce sângele din membrele inferioare.', k: ['IVC'], v: 'ext' },
-  { q: 'Atinge vasul în care ventriculul stâng pompează sângele.', k: ['AO', 'DAO'], v: 'ext' },
+  { q: 'Atinge vasul în care pompează ventriculul stâng.', k: ['AO', 'DAO'], v: 'ext' },
 ];
 const NQ = 8;
 let exam = null;
@@ -724,7 +722,7 @@ let xrMode = null, needPlace = false;
 (async () => {
   if (navigator.xr) { try { if (await navigator.xr.isSessionSupported('immersive-ar')) xrMode = 'immersive-ar'; else if (await navigator.xr.isSessionSupported('immersive-vr')) xrMode = 'immersive-vr'; } catch (e) { } }
   if (xrMode) { xrBtn.disabled = false; xrBtn.textContent = xrMode === 'immersive-ar' ? 'Intră în AR' : 'Intră în VR'; }
-  else { xrBtn.textContent = 'AR indisponibil'; msg.textContent = 'Previzualizare 3D: rotește cu un deget, mărește cu două degete. Pentru AR, deschide pagina pe Magic Leap 2.'; setTimeout(() => { msg.textContent = ''; }, 8000); }
+  else { xrBtn.textContent = 'AR indisponibil'; msg.textContent = 'Previzualizare 3D: rotește cu degetul, apropie cu pinch. Pentru AR, deschide pagina pe Magic Leap 2.'; setTimeout(() => { msg.textContent = ''; }, 8000); }
 })();
 xrBtn.onclick = async () => {
   ensureAudio();
